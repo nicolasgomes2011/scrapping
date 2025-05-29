@@ -1,79 +1,100 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-import time
+#!/usr/bin/env python3
+# download_pdf.py
 
-def obter_conta_rge(cpf, senha, caminho_salvar):
-    try:
-        # Configurações para modo headless
-        options = Options()
-        options.add_argument("--headless")  # Ativa o modo headless
-        options.add_argument("--no-sandbox")  # Necessário em servidores para evitar erros de permissão
-        options.add_argument("--disable-dev-shm-usage")  # Evita problemas de memória em contêineres
-        options.add_argument("--disable-gpu")  # Desativa a GPU, desnecessária em modo headless
-        options.add_argument("--window-size=1920,1080")  # Define o tamanho da janela para layouts corretos
+import requests
+from bs4 import BeautifulSoup
+import argparse
+import sys
+from urllib.parse import urljoin
 
-        # Configura o diretório de download (opcional)
-        prefs = {"download.default_directory": caminho_salvar}
-        options.add_experimental_option("prefs", prefs)
+def login_and_download_pdf(base_url, login_url, page_url, username, password, selector, output):
+    session = requests.Session()
 
-        # Inicia o WebDriver com as opções headless
-        driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-        
-        # Acessa o site da RGE (exemplo)
-        driver.get("https://www.rge-rs.com.br")
-        
-        # Aguarda o campo de login aparecer
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "login-cpf"))  # Ajuste o ID conforme o site
-        )
-        
-        # Preenche o CPF
-        campo_cpf = driver.find_element(By.ID, "login-cpf")  # Ajuste o ID real
-        campo_cpf.send_keys(cpf)
-        
-        # Preenche a senha
-        campo_senha = driver.find_element(By.ID, "login-senha")  # Ajuste o ID real
-        campo_senha.send_keys(senha)
-        
-        # Clica no botão de login
-        botao_login = driver.find_element(By.ID, "botao-login")  # Ajuste o ID real
-        botao_login.click()
-        
-        # Aguarda a página de contas carregar
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.LINK_TEXT, "Segunda Via de Conta"))  # Exemplo
-        )
-        
-        # Navega até a seção de contas
-        driver.find_element(By.LINK_TEXT, "Segunda Via de Conta").click()
-        
-        # Aguarda o botão de download
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "download-conta"))  # Exemplo
-        )
-        
-        # Clica para baixar o PDF
-        driver.find_element(By.ID, "download-conta").click()
-        
-        # Aguarda o download (ajuste o tempo ou use uma verificação mais robusta)
-        time.sleep(5)
-        
-        print(f"Conta baixada com sucesso para o cliente com CPF: {cpf}")
-        
-    except Exception as e:
-        print(f"Erro ao processar o CPF {cpf}: {str(e)}")
-        
-    finally:
-        # Fecha o navegador
-        driver.quit()
+    # 1) Fazer GET na página de login para pegar cookies e, se existir, algum token CSRF
+    resp = session.get(login_url)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    # Exemplo de captura de token CSRF (se necessário):
+    csrf = soup.select_one('input[name=csrf_token]')
+    token = csrf['value'] if csrf else None
 
-# Exemplo de uso
-cpf_cliente = "gomes.nicolas.2011@gmail.com"  # Substitua pelos dados reais
-senha_cliente = "94488704Ngg!"       # Substitua pelos dados reais
-caminho_salvar = "/caminho/para/salvar"  # Ajuste o caminho no servidor
+    # 2) Enviar credenciais
+    payload = {
+        'signInName': username,
+        'password': password,
+    }
+    if token:
+        payload['csrf_token'] = token
 
-obter_conta_rge(cpf_cliente, senha_cliente, caminho_salvar)
+    resp = session.post(login_url, data=payload)
+    resp.raise_for_status()
+    # [Opcional] verificar se login deu certo
+    if "logout" not in resp.text.lower():
+        print("⚠️  Atenção: não consegui logar. Confira usuário/senha ou seletores.", file=sys.stderr)
+        sys.exit(1)
+
+    # 3) Acessar a página onde está o botão/link do PDF
+    resp = session.get(page_url)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, 'html.parser')
+
+    # 4) Encontrar o link ou botão que leva ao PDF
+    #    selector é um CSS selector para o <a> ou <button data-url="...">
+    element = soup.select_one(selector)
+    if not element:
+        print(f"❌ Seletor '{selector}' não encontrado na página.", file=sys.stderr)
+        sys.exit(1)
+
+    # Tentar extrair href ou atributo data-url
+    pdf_href = element.get('href') or element.get('data-url')
+    if not pdf_href:
+        print("❌ Não encontrei atributo href ou data-url no elemento.", file=sys.stderr)
+        sys.exit(1)
+
+    # Construir URL absoluta, se necessário
+    pdf_url = urljoin(base_url, pdf_href)
+
+    # 5) Baixar o PDF
+    resp = session.get(pdf_url, stream=True)
+    resp.raise_for_status()
+    with open(output, 'wb') as f:
+        for chunk in resp.iter_content(1024):
+            f.write(chunk)
+
+    print(f"✅ PDF salvo em: {output}")
+
+if __name__ == '__main__':
+    # parser = argparse.ArgumentParser(
+    #     description='Faz login e baixa PDF de um site via terminal')
+    # parser.add_argument('--base-url',   required=True,
+    #                     help='URL base do site, ex: https://exemplo.com')
+    # parser.add_argument('--login-url',  required=True,
+    #                     help='URL do formulário de login, ex: https://exemplo.com/login')
+    # parser.add_argument('--page-url',   required=True,
+    #                     help='URL da página com o botão/link do PDF')
+    # parser.add_argument('--username',   required=True, help='Seu usuário')
+    # parser.add_argument('--password',   required=True, help='Sua senha')
+    # parser.add_argument('--selector',   required=True,
+    #                     help='CSS selector do link/button que aponta para o PDF, ex: "a#baixarPdf"')
+    # parser.add_argument('--output',     default='download.pdf',
+    #                     help='Nome do arquivo de saída (padrão: download.pdf)')
+    # args = parser.parse_args()
+
+
+    base_url = "https://www.cpfl.com.br/"
+    login_url = "https://www.cpfl.com.br/login"
+    page_url = "www.cpfl.com.br/agencia-virtual/agencia-virtual/conta-completa"
+    username = "gomes.nicolas.2011@gmail.com"
+    password = "93810808Ngg!"
+    selector = "entenda-conta" # seletor por css que é usado para baixar o pdf
+    output = "" #nao sei o que é
+
+    login_and_download_pdf(
+        base_url,
+        login_url,
+        page_url,
+        username,
+        password,
+        selector,
+        output
+    )
