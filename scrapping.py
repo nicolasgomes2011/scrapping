@@ -1,113 +1,82 @@
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+#!/usr/bin/env python3
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+import time
 
-class RgeScrapper:
-    def __init__(self, url_base: str):
-        self.url_base = url_base
-        self.sessao = requests.Session()  # Cria uma sessão para manter os cookies, etc.
+def login_rge_e_seleciona_instalacao(username, password):
+    options = Options()
+    options.headless = False  # Troque para True para rodar sem abrir janela
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
-    def obter_conteudo_pagina(self):
-        """Faz a requisição HTTP e retorna o conteúdo da página."""
+    driver = webdriver.Chrome(options=options)
+    wait = WebDriverWait(driver, 20)
+
+    try:
+        # 1) Acessa página inicial
+        driver.get("https://www.rge-rs.com.br")
+
+        # 2) Clica no botão de login
+        sign_in_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".sign-in-text a")))
+        sign_in_button.click()
+
+        # 3) Espera a página de login carregar
+        wait.until(EC.visibility_of_element_located((By.ID, "signInName")))
+
+        # 4) Preenche usuário e senha
+        driver.find_element(By.ID, "signInName").send_keys(username)
+        driver.find_element(By.ID, "password").send_keys(password)
+
+        # 5) Clica no botão de enviar (login)
+        login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+        login_button.click()
+
+        # 6) Espera a página de instalações carregar
+        wait.until(EC.url_contains("area-cliente/cadastro"))
+        wait.until(EC.presence_of_element_located((By.NAME, "instalacao")))
+
+        # 7) Fecha popup de cookies se aparecer
         try:
-            resposta = self.sessao.get(self.url_base)
-            if resposta.status_code != 200:
-                print(f"Erro ao acessar {self.url_base}: {resposta.status_code}")
-                return None
-            return resposta.content
-        except Exception as e:
-            print(f"Erro: {e}")
-            return None
+            cookie_close_btn = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button.onetrust-close-btn-handler"))
+            )
+            cookie_close_btn.click()
+            print("Popup de cookies fechado.")
+            time.sleep(1)  # Pequena pausa para sumir o popup
+        except TimeoutException:
+            print("Popup de cookies não apareceu ou já foi fechado.")
 
-    def realizar_login(self, login: str, senha: str):
-        """Realiza o login no site utilizando uma requisição POST."""
-        # Exemplo: suponha que a URL de login seja obtida ou seja a mesma base
-        url_login = urljoin(self.url_base, "login")  # Ajuste conforme o endpoint correto
+        # 8) Seleciona o input radio da instalação (primeira encontrada)
+        radios = driver.find_elements(By.NAME, "instalacao")
+        if not radios:
+            print("Nenhuma instalação encontrada!")
+            return
 
-        # Dados que serão enviados no POST (use os nomes dos campos corretos!)
-        dados_login = {
-            "signInName": login,
-            "password": senha,
-            # Se houver tokens ou campos extras, adicione aqui.
-        }
-        
-        try:
-            resposta = self.sessao.post(url_login, data=dados_login)
-            if resposta.status_code == 200:
-                print("Login realizado com sucesso.")
-                return True
-            else:
-                print(f"Falha no login: {resposta.status_code}")
-                return False
-        except Exception as e:
-            print(f"Erro durante o login: {e}")
-            return False
+        radios[0].click()
 
-    def extrair_link_conta_luz(self, html_content: bytes):
-        """Faz o parsing do HTML e retorna a URL absoluta do documento da conta de luz."""
-        soup = BeautifulSoup(html_content, 'html.parser')
-        link_conta = soup.find('a', text=lambda t: t and 'conta de luz' in t.lower())
-        if link_conta and link_conta.get('href'):
-            return urljoin(self.url_base, link_conta['href'])
-        else:
-            print("Link para a conta de luz não encontrado.")
-            return None
+        # 9) Espera 2 segundos para botão habilitar
+        time.sleep(2)
 
-    def baixar_documento(self, url_documento: str):
-        """Faz o download do documento e o salva localmente."""
-        try:
-            resposta_doc = self.sessao.get(url_documento)
-            if resposta_doc.status_code != 200:
-                print(f"Erro ao baixar o documento: {resposta_doc.status_code}")
-                return False
-            with open('conta_luz.pdf', 'wb') as f:
-                f.write(resposta_doc.content)
-            print("Documento baixado com sucesso.")
-            return True
-        except Exception as e:
-            print(f"Erro durante o download: {e}")
-            return False
+        # 10) Clica no botão "Buscar" para avançar
+        btn_buscar = driver.find_element(By.ID, "btn-buscar")
+        btn_buscar.click()
 
-    def executar(self):
-        """Executa o fluxo completo de scraping, incluindo o login se necessário."""
-        print("Iniciando o processo de scraping...")
-        # Primeiro obtenha a página inicial
-        conteudo = self.obter_conteudo_pagina()
-        if conteudo:
-            print("Conteúdo da página obtido com sucesso.")
+        print("Instalação selecionada e botão Buscar clicado com sucesso!")
+        print("URL atual:", driver.current_url)
 
-            # Realiza o login
-            login = "gomes.nicolas.2011@gmail.com"
-            senha = "993810808Ngg!"
-            if self.realizar_login(login, senha):
-                # Após o login, você pode acessar páginas que necessitam autenticação
-                # Exemplo: obtendo novamente o conteúdo (ou acessando outra URL específica)
-                conteudo = self.obter_conteudo_pagina()
-                if conteudo:
-                    url_documento = self.extrair_link_conta_luz(conteudo)
-                    if url_documento:
-                        print(f"URL do documento encontrada: {url_documento}")
-                        if self.baixar_documento(url_documento):
-                            print("Processo concluído com sucesso.")
-                            return True
-                        else:
-                            print("Falha ao baixar o documento.")
-                            return False
-                    else:
-                        print("Não foi possível extrair a URL do documento.")
-                        return False
-                else:
-                    print("Não foi possível obter o conteúdo da página após o login.")
-                    return False
-            else:
-                print("Login falhou.")
-                return False
-        else:
-            print("Não foi possível obter o conteúdo da página.")
-            return False
-
+    finally:
+        driver.quit()
 
 if __name__ == "__main__":
-    url_inicial = "https://exemplo.com"  # Atualize com a URL real da página inicial
-    scrapper = RgeScrapper(url_inicial)
-    scrapper.executar()
+    username = "gomes.nicolas.2011@gmail.com"
+    password = "94488704Ngg!"
+    login_rge_e_seleciona_instalacao(username, password)
