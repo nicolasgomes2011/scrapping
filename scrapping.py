@@ -7,6 +7,30 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import time
 
+def fechar_modal(driver, wait):
+    try:
+        modal_close_btn = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, ".modal-close-button"))
+        )
+        modal_close_btn.click()
+        print("Modal fechado com sucesso.")
+        time.sleep(1)  # Pequena pausa para garantir que o modal sumiu
+    except TimeoutException:
+        print("Modal não apareceu ou já foi fechado.")
+
+
+def baixar_documento(driver, wait):
+    try:
+        # Espera o botão de baixar documento ficar clicável
+        btn_baixar = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "a.entenda-conta"))
+        )
+        btn_baixar.click()
+        print("Botão de baixar conta clicado com sucesso!")
+    except TimeoutException:
+        print("Botão de baixar conta não encontrado ou não clicável.")
+    
+    
 def login_rge_e_seleciona_instalacao(username, password):
     options = Options()
     options.headless = False  # Troque para True para rodar sem abrir janela
@@ -40,6 +64,9 @@ def login_rge_e_seleciona_instalacao(username, password):
         login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
         login_button.click()
 
+        
+        fechar_modal(driver, wait)
+
         # 6) Espera a página de instalações carregar
         wait.until(EC.url_contains("area-cliente/cadastro"))
         wait.until(EC.presence_of_element_located((By.NAME, "instalacao")))
@@ -72,6 +99,16 @@ def login_rge_e_seleciona_instalacao(username, password):
 
         print("Instalação selecionada e botão Buscar clicado com sucesso!")
         print("URL atual:", driver.current_url)
+        
+        time.sleep(1)
+        fechar_modal(driver, wait)
+        
+        print("Tentando baixar a conta")
+        baixar_documento(driver, wait)
+
+        time.sleep(3)  # Espera para ver o resultado
+        fechar_modal(driver, wait)
+        
 
     finally:
         driver.quit()
@@ -80,3 +117,5 @@ if __name__ == "__main__":
     username = "gomes.nicolas.2011@gmail.com"
     password = "94488704Ngg!"
     login_rge_e_seleciona_instalacao(username, password)
+
+
