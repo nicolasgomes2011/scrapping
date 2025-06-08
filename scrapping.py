@@ -1,4 +1,28 @@
 #!/usr/bin/env python3
+"""
+Realiza o login no site da RGE, seleciona a primeira instalação disponível e tenta baixar o documento da conta.
+Parâmetros:
+    username (str): Nome de usuário (e-mail) para login no site da RGE.
+    password (str): Senha correspondente ao usuário.
+Fluxo da função:
+    1. Inicializa o navegador Chrome com opções customizadas.
+    2. Acessa a página inicial da RGE.
+    3. Clica no botão de login e aguarda o carregamento da página de autenticação.
+    4. Preenche os campos de usuário e senha e realiza o login.
+    5. Fecha eventuais modais que possam aparecer após o login.
+    6. Aguarda o carregamento da página de seleção de instalações.
+    7. Fecha o popup de cookies, se presente.
+    8. Seleciona a primeira instalação disponível na lista.
+    9. Clica no botão "Buscar" para avançar.
+    10. Fecha novamente eventuais modais.
+    11. Tenta baixar o documento da conta.
+    12. Fecha o navegador ao final do processo.
+Observações:
+    - Utiliza Selenium WebDriver para automação do navegador.
+    - Inclui tratamento de exceções para lidar com elementos que podem não estar presentes ou clicáveis.
+    - Realiza pequenas pausas (sleep) para garantir o carregamento e fechamento de elementos dinâmicos.
+    - O navegador é fechado automaticamente ao final, mesmo em caso de erro.
+"""
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -18,6 +42,16 @@ def fechar_modal(driver, wait):
     except TimeoutException:
         print("Modal não apareceu ou já foi fechado.")
 
+def fechar_popup_cookies(driver, wait):
+    try:
+        cookie_close_btn = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button.onetrust-close-btn-handler"))
+        )
+        cookie_close_btn.click()
+        print("Popup de cookies fechado.")
+        time.sleep(1)  # Pequena pausa para garantir que o popup sumiu
+    except TimeoutException:
+        print("Popup de cookies não apareceu ou já foi fechado.")
 
 def baixar_documento(driver, wait):
     try:
@@ -30,8 +64,10 @@ def baixar_documento(driver, wait):
     except TimeoutException:
         print("Botão de baixar conta não encontrado ou não clicável.")
     
-    
-def login_rge_e_seleciona_instalacao(username, password):
+
+
+
+def login_rge_e_seleciona_instalacao(username, password, informacoes = {}):
     options = Options()
     options.headless = False  # Troque para True para rodar sem abrir janela
     options.add_argument('--no-sandbox')
@@ -43,7 +79,7 @@ def login_rge_e_seleciona_instalacao(username, password):
                          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 1)
 
     try:
         # 1) Acessa página inicial
@@ -72,26 +108,17 @@ def login_rge_e_seleciona_instalacao(username, password):
         wait.until(EC.presence_of_element_located((By.NAME, "instalacao")))
 
         # 7) Fecha popup de cookies se aparecer
-        try:
-            cookie_close_btn = wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button.onetrust-close-btn-handler"))
-            )
-            cookie_close_btn.click()
-            print("Popup de cookies fechado.")
-            time.sleep(1)  # Pequena pausa para sumir o popup
-        except TimeoutException:
-            print("Popup de cookies não apareceu ou já foi fechado.")
+        
+        
+        fechar_popup_cookies(driver, wait)
 
         # 8) Seleciona o input radio da instalação (primeira encontrada)
-        radios = driver.find_elements(By.NAME, "instalacao")
-        if not radios:
-            print("Nenhuma instalação encontrada!")
-            return
-
-        radios[0].click()
+        instalacao_id = f"instalacao-{informacoes.get('instalacao')}"
+        radio = driver.find_element(By.ID, instalacao_id)
+        radio.click()
 
         # 9) Espera 2 segundos para botão habilitar
-        time.sleep(2)
+        # time.sleep(0.5)
 
         # 10) Clica no botão "Buscar" para avançar
         btn_buscar = driver.find_element(By.ID, "btn-buscar")
@@ -100,13 +127,12 @@ def login_rge_e_seleciona_instalacao(username, password):
         print("Instalação selecionada e botão Buscar clicado com sucesso!")
         print("URL atual:", driver.current_url)
         
-        time.sleep(1)
         fechar_modal(driver, wait)
         
         print("Tentando baixar a conta")
         baixar_documento(driver, wait)
 
-        time.sleep(3)  # Espera para ver o resultado
+        # time.sleep(3)  # Espera para ver o resultado
         fechar_modal(driver, wait)
         
 
@@ -116,6 +142,13 @@ def login_rge_e_seleciona_instalacao(username, password):
 if __name__ == "__main__":
     username = "gomes.nicolas.2011@gmail.com"
     password = "94488704Ngg!"
-    login_rge_e_seleciona_instalacao(username, password)
+    informacoes = {
+        "instalacao": 3085266087,
+    }
 
+    login_rge_e_seleciona_instalacao(username, password, informacoes)
+
+
+
+#32.91 segundos até o download do documento
 
