@@ -69,8 +69,9 @@ def baixar_documento(driver, wait):
 
 def login_rge_e_seleciona_instalacao(username, password, informacoes = {}):
     options = Options()
-    options.headless = False  # Troque para True para rodar sem abrir janela
+    options.headless = True  # Troque para True para rodar sem abrir janela
     options.add_argument('--no-sandbox')
+    options.add_argument("--headless")
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument('--ignore-certificate-errors')
