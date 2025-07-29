@@ -1,0 +1,5 @@
+# API Keys e credenciais
+anti-captcha-credencials.py
+*.env
+*credentials*
+*secret*
