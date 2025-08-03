@@ -7,75 +7,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from anticaptchaofficial.recaptchav2proxyless import recaptchaV2Proxyless
 from datetime import datetime
-
 import time
 
-# API Keys e credenciais
+# API Key do Anti-Captcha
+anti_captcha_api = "aad88f1335cb1896afac5b21659f073e"
 
-anti_captcha_api="aad88f1335cb1896afac5b21659f073e"
+def obter_mes_atual():
+    return datetime.now().strftime("%m/%Y")
 
-
-
-
-def resolver_captcha(driver, link, site_key=None):
-    
-    solver = recaptchaV2Proxyless()
-    solver.set_verbose(1)
-    solver.set_key(anti_captcha_api)
-    solver.set_website_url(link)
-    solver.set_website_key(site_key)
-    
-    """Resolve o reCAPTCHA usando a API do AntiCaptcha"""
-    if not site_key:
-        site_key = extrair_site_key(driver)
-        if not site_key:
-            return False
-    
-    g_response = resolver_recaptcha_v2(driver, site_key, anti_captcha_api)
-    if g_response:
-        print("Captcha resolvido com sucesso!")
-        return True
-    else:
-        print("Não foi possível resolver o captcha.")
-        return False
-
-
-def resolver_recaptcha_v2(driver, site_key, api_key):
-    solver = recaptchaV2Proxyless()
-    solver.set_verbose(1)
-    solver.set_key(api_key)
-    current_url = driver.current_url
-    solver.set_website_url(current_url)
-    solver.set_website_key(site_key)
-    g_response = solver.solve_and_return_solution()
-    if g_response != 0:
-        print("Captcha resolvido com sucesso!")
-        driver.execute_script(
-            "document.getElementById('g-recaptcha-response').style.display = 'block';"
-            "document.getElementById('g-recaptcha-response').value = arguments[0];",
-            g_response
-        )
-        return g_response
-    else:
-        print("Não foi possível resolver o captcha. Erro:", solver.error_code)
-        return None
-
-
-def fechar_modal(driver, wait):
+def baixar_documento(driver, wait, mes=None):
     try:
-        modal_close_btn = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".modal-close-button"))
-        )
-        modal_close_btn.click()
-        print("Modal fechado com sucesso.")
-        time.sleep(1)  # Pequena pausa para garantir que o modal sumiu
-    except TimeoutException:
-        print("Modal não apareceu ou já foi fechado.")
-
-
-def baixar_documento(driver, wait):
-    try:
-        # Espera o botão de baixar documento ficar clicável
         btn_baixar = wait.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "a.entenda-conta"))
         )
@@ -84,17 +25,46 @@ def baixar_documento(driver, wait):
     except TimeoutException:
         print("Botão de baixar conta não encontrado ou não clicável.")
 
+def resolver_captcha(driver, site_url):
+    try:
+        # Localiza iframe que contém o sitekey
+        iframe = driver.find_element(By.XPATH, "//iframe[contains(@src, 'recaptcha')]")
+        src = iframe.get_attribute("src")
+        site_key = src.split("k=")[1].split("&")[0]
 
-def obter_mes_atual():
-    
-    return datetime.now().strftime("%m/%Y")
+        # Usa anti-captcha
+        solver = recaptchaV2Proxyless()
+        solver.set_verbose(1)
+        solver.set_key(anti_captcha_api)
+        solver.set_website_url(site_url)
+        solver.set_website_key(site_key)
 
-def login_rge_e_seleciona_instalacao(username, password, matricula = False, mes = obter_mes_atual()):
+        print("Resolvendo captcha...")
+        g_response = solver.solve_and_return_solution()
+
+        if g_response != 0:
+            print("Captcha resolvido com sucesso!")
+
+            # Injeta resposta no campo oculto
+            driver.execute_script("""
+                document.getElementById('g-recaptcha-response').style.display = 'block';
+                document.getElementById('g-recaptcha-response').value = arguments[0];
+                var event = new Event('change');
+                document.getElementById('g-recaptcha-response').dispatchEvent(event);
+            """, g_response)
+
+            return True
+        else:
+            print("Erro ao resolver captcha:", solver.error_code)
+            return False
+    except Exception as e:
+        print("Erro ao tentar resolver o captcha:", e)
+        return False
+
+def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=obter_mes_atual()):
     options = Options()
-    options.headless = False  # Troque para True para rodar sem abrir janela
+    options.headless = False  # Troque para True se quiser rodar em background
     options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--disable-gpu')
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--window-size=1920,1080')
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -104,77 +74,57 @@ def login_rge_e_seleciona_instalacao(username, password, matricula = False, mes 
     wait = WebDriverWait(driver, 20)
 
     try:
-        # 1) Acessa página inicial
-        driver.get("https://cliente.corsan.com.br")
+        driver.get("https://cliente.corsan.com.br/entrar")
+        time.sleep(5)  # Aguarda carregar reCAPTCHA
 
-       
         if not matricula:
-            # selecionar elemento pela classe botao-entrar
             botao = driver.find_element(By.CLASS_NAME, "botao-entrar")
             botao.click()
-            
+
             login_input = wait.until(
                 EC.visibility_of_element_located((By.ID, "signInName"))
             )
-            
             login_input.send_keys(username)
 
             password_input = wait.until(
                 EC.visibility_of_element_located((By.ID, "password"))
             )
-            
             password_input.send_keys(password)
 
             button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
             button.click()
-
         else:
-            
-            link = "https://cliente.corsan.com.br/entrar"
-            site_key = driver.find_element(By.ID, "recaptcha-token").get_attribute("value")
-            # site_key = driver.find_element(By.ID, "blank-frame-token").get_attribute("value")
-           
-            # Instancia a classe do solver 
-            solver = recaptchaV2Proxyless()
-            solver.set_verbose(1)
-            solver.set_key(anti_captcha_api)
-            solver.set_website_url(link)
-            solver.set_website_key(site_key)
-            
-            resposta = solver.solve_and_return_solution()
-            if resposta != 0:
-                print(resposta)
-            else:
-                print("Erro ao resolver captcha:", solver.err_string)
-                return
-            time.sleep(1000)
-            #selecionar o elemento atraves do atributo formcontrolname="cpf_cnpj"
-            driver.find_element(By.CSS_SELECTOR, "input[formcontrolname='cpf_cnpj']").send_keys(username)
-            driver.find_element(By.CSS_SELECTOR, "input[formcontrolname='matricula']").send_keys(matricula)
-            
-            
-        
-        
-        # time.sleep(1000)
-        
-        # depois de fazer o login, espera a página carregar e acessar https://cliente.corsan.com.br/historico-faturas
-        wait.until(EC.url_contains("historico-faturas"))
-        
-        #depois disso, preciso baixar o documento referente ao mês, nao necessariamente atual, mas um mes passado para minha função
-        baixar_documento(driver, wait, mes)
-            
+            if resolver_captcha(driver, driver.current_url):
+                driver.find_element(By.CSS_SELECTOR, "input[formcontrolname='cpf_cnpj']").send_keys(username)
+                driver.find_element(By.CSS_SELECTOR, "input[formcontrolname='matricula']").send_keys(matricula)
 
-        
+                # Aguarda botão de consultar estar habilitado
+                time.sleep(1)
+                try:
+                    # Espera botão de login com matrícula aparecer e estar clicável
+                    btn_consultar = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Consultar')]")))
+                    btn_consultar.click()
+                    print("Botão 'Consultar' clicado com sucesso.")
+                except TimeoutException:
+                    print("Botão 'Consultar' não encontrado após resolver captcha.")
+                    return
+
+            else:
+                print("Falha ao resolver captcha.")
+                return
+
+        wait.until(EC.url_contains("historico-faturas"))
+        baixar_documento(driver, wait, mes)
+
     except Exception as e:
         print("Ocorreu um erro:", e)
         raise
     finally:
+        time.sleep(5)
         driver.quit()
 
 if __name__ == "__main__":
-    username = "niltonggomes2011@gmail.com"
+    username = "38605759020"
     password = "94488704Ngg!"
-    matricula = "" #"2"
+    matricula = "268350"
     login_rge_e_seleciona_instalacao(username, password, matricula)
-
-
