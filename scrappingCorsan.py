@@ -102,7 +102,9 @@ def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=ob
                 time.sleep(1)
                 try:
                     # Espera botão de login com matrícula aparecer e estar clicável
-                    btn_consultar = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Consultar')]")))
+                    btn_consultar = driver.find_element(By.CLASS_NAME, "botao-consulta")
+                    driver.execute_script("arguments[0].removeAttribute('disabled')", btn_consultar)
+
                     btn_consultar.click()
                     print("Botão 'Consultar' clicado com sucesso.")
                 except TimeoutException:
@@ -113,8 +115,17 @@ def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=ob
                 print("Falha ao resolver captcha.")
                 return
 
-        wait.until(EC.url_contains("historico-faturas"))
-        baixar_documento(driver, wait, mes)
+        
+            paginaAtual = driver.current_url
+            if "segunda-via-rapida" in paginaAtual:
+                print("Entrei na pagina de segunda via, através da matricula")
+
+                if "em dia" in driver.page_source.lower():
+                    print("Conta está em dia!")
+                    # Ação se estiver em dia
+                else:
+                    print("Conta não está em dia ou texto não encontrado.")
+                    # Ação se não estiver em dia
 
     except Exception as e:
         print("Ocorreu um erro:", e)
@@ -125,6 +136,6 @@ def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=ob
 
 if __name__ == "__main__":
     username = "38605759020"
-    password = "94488704Ngg!"
+    password = "9d4488704Ngg!"
     matricula = "268350"
     login_rge_e_seleciona_instalacao(username, password, matricula)
