@@ -17,13 +17,18 @@ def obter_mes_atual():
 
 def baixar_documento(driver, wait, mes=None):
     try:
-        btn_baixar = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "a.entenda-conta"))
+        # seu código anterior para baixar conta
+        # ...
+
+        # agora clica no botão "EMITIR 2ª VIA"
+        botao_2via = wait.until(
+            EC.element_to_be_clickable((By.XPATH, "//span[text()='EMITIR']/.."))
         )
-        btn_baixar.click()
-        print("Botão de baixar conta clicado com sucesso!")
+        botao_2via.click()
+        print("Botão 'EMITIR 2ª VIA' clicado com sucesso!")
+
     except TimeoutException:
-        print("Botão de baixar conta não encontrado ou não clicável.")
+        print("Botão 'EMITIR 2ª VIA' não encontrado ou não clicável.")
 
 def resolver_captcha(driver, site_url):
     try:
@@ -119,13 +124,18 @@ def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=ob
             paginaAtual = driver.current_url
             if "segunda-via-rapida" in paginaAtual:
                 print("Entrei na pagina de segunda via, através da matricula")
+                print(driver.page_source.lower())
+                
+                
+                try:
+                    botao_2via = wait.until(
+                        EC.element_to_be_clickable((By.XPATH, "//span[text()='EMITIR 2ª VIA']/.."))
+                    )
+                    botao_2via.click()
+                    print("Botão 'EMITIR 2ª VIA' clicado com sucesso!")
 
-                if "em dia" in driver.page_source.lower():
-                    print("Conta está em dia!")
-                    # Ação se estiver em dia
-                else:
-                    print("Conta não está em dia ou texto não encontrado.")
-                    # Ação se não estiver em dia
+                except TimeoutException:
+                    print("Botão 'EMITIR 2ª VIA' não encontrado ou não clicável.")
 
     except Exception as e:
         print("Ocorreu um erro:", e)
@@ -135,7 +145,7 @@ def login_rge_e_seleciona_instalacao(username, password, matricula=False, mes=ob
         driver.quit()
 
 if __name__ == "__main__":
-    username = "38605759020"
-    password = "9d4488704Ngg!"
-    matricula = "268350"
+    username = "91.994.665/0001-13"
+    password = ""
+    matricula = "254434"
     login_rge_e_seleciona_instalacao(username, password, matricula)
