@@ -40,40 +40,32 @@ def baixarDocumentoDMAE(matricula, cnpj):
             print("Preenchi a matricula")
             
             submit_button.click()
-
+            time.sleep(5)
             print("Cliquei no primeiro submit")
 
 
-            time.sleep(2)  # espera a página carregar
 
             # Preenche o campo CNPJ
             input_cnpj = driver.find_element(By.NAME, "cpfCnpjSolicitante")
             input_cnpj.send_keys(cnpj)
-            time.sleep(2)
-            # RELOCALIZA o botão para clicar depois de preencher o CNPJ
+            
+            
+            
             submit_button_cnpj = wait.until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "btn-ok"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "#solicitarDigitoCpfCnpj form[name='ExibirServicosPortalDmaeActionForm'] fieldset .btn-ok"))
             )
             submit_button_cnpj.click()
             
-            print(input_cnpj)
-            time.sleep(20)
-
-            print("Cliquei no segundo submit")
-
-            #li#serv-1 a
+            time.sleep(5)
             
-            botao_download_link = wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "li#serv-1 a"))
-            )
-            botao_download_link.click()
+            #direcionar o usuário para o link emitirSegundaViaContaPortalDmaeAction.do
+            driver.get("https://dmaeagvrt.procempa.com.br/gsan/emitirSegundaViaContaPortalDmaeAction.do")
             
-            # CLICAR NO BOTÃO COM ALT Imprimir Fatura
             botao_imprimir = wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//a[title()='Imprimir Fatura']/.."))
+                EC.element_to_be_clickable((By.XPATH, "//a[@title='Imprimir Fatura']"))
             )
-            
             botao_imprimir.click()
+            
     except Exception as e:
         print("Ocorreu um erro:", e)
         raise
