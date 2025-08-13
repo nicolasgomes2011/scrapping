@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 
 
-def baixarDocumentoDMAE(matricula, cnpj):
+def baixarDocumentoCEEE(matricula, cnpj):
     options = Options()
     options.headless = False  # Troque para True se quiser rodar em background
     options.add_argument('--no-sandbox')
@@ -23,7 +23,7 @@ def baixarDocumentoDMAE(matricula, cnpj):
     wait = WebDriverWait(driver, 20)
 
     try:
-        driver.get("https://dmaeagvrt.procempa.com.br/gsan/exibirServicosPortalDmaeAction.do")
+        driver.get("https://rs.equatorialenergia.com.br/login")
 
         if not matricula:
             print("Matricula não informada.")
@@ -56,7 +56,6 @@ def baixarDocumentoDMAE(matricula, cnpj):
             )
             submit_button_cnpj.click()
             
-            time.sleep(5)
             
             #direcionar o usuário para o link emitirSegundaViaContaPortalDmaeAction.do
             driver.get("https://dmaeagvrt.procempa.com.br/gsan/emitirSegundaViaContaPortalDmaeAction.do")
@@ -76,4 +75,4 @@ def baixarDocumentoDMAE(matricula, cnpj):
 if __name__ == "__main__":
     codigo_imovel= "000935034"
     cnpj = "06210667000103"
-    baixarDocumentoDMAE(codigo_imovel, cnpj)
+    baixarDocumentoCEEE(codigo_imovel, cnpj)
