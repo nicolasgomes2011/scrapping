@@ -1,5 +1,68 @@
-# API Keys e credenciais
-anti-captcha-credencials.py
+# --- Bytecode / cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Ambientes virtuais ---
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Ferramentas / caches ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pytype/
+.pyre/
+.pyright/
+.ruff_cache/
+.hypothesis/
+.cache/
+
+# --- Distribuição / build ---
+build/
+dist/
+sdist/
+downloads/
+wheels/
+share/python-wheels/
+*.egg-info/
+.eggs/
+*.egg
+MANIFEST
+pip-wheel-metadata/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Notebooks / IDEs ---
+.ipynb_checkpoints/
+.jupyter/lab/workspaces/
+
+# --- Projetos/editores (opcional; descomente se quiser) ---
+.idea/
+.vscode/
+.ropeproject/
+
+# --- Configuração local / segredos ---
 *.env
-*credentials*
-*secret*
+*.env.*
+.env
+.env.*
+.envrc
+.python-version
+
+# --- Logs / temporários ---
+*.log
+*.tmp
+*.temp
+
+# --- Sistemas operacionais (opcional) ---
+#.DS_Store
+#Thumbs.db
