@@ -1,4 +1,4 @@
-# RgeScrapper
+# Scrapper
 
 This project is a Python-based web scraper designed to retrieve the electricity bill document from an website. 
 
